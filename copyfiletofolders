@@ -1,0 +1,81 @@
+function Copy() {
+  var ui = SpreadsheetApp.getUi();
+  var app = SpreadsheetApp;
+  var ss = app.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("Tracker")
+  
+  var copyfile = DriveApp.getFileById(sheet.getRange(1,2).getValue()) //get the name of the file to copy
+  var destinationfoldername = sheet.getRange(2,2).getValue(); //get the Name of Parent folder to copy to
+  var destinationfolder = DriveApp.getFolderById(destinationfoldername); //get the parent folder
+  //var destinationfolders = destinationfolder.getFolders(); //get the child folder
+  var copyfilename = copyfile.getName(); //retrieve the name of the file that is being copied
+  sheet.getRange(3,2).setValue(copyfilename);
+  
+  //continuation token
+  var userProperties = PropertiesService.getUserProperties();
+  var continuationToken = userProperties.getProperty('CONTINUATION_TOKEN');
+  var start = new Date();
+  var end = new Date();
+  var maxTime = 1000*60*5;
+  
+  if (continuationToken == null) {
+    // firt time execution, get all files from Drive
+    var destinationfolders = destinationfolder.getFolders();
+    var Tokenalert = ui.prompt(
+      'There is no token',
+      ui.ButtonSet.OK_CANCEL);
+  } 
+  
+  else {
+    // not the first time, pick up where we left off
+    var destinationfolders = DriveApp.continueFolderIterator(continuationToken);
+  }
+  
+  // Create tab to track progress
+  var i = null;
+  if (ss.getSheetByName("Progress") == null){
+    var progress = ss.insertSheet("Progress");
+    var i = 0;
+  }
+  else {
+    var progress = ss.getSheetByName("Progress");
+    var i = ss.getSheetByName("Progress").getLastRow();
+    }
+  
+  while (destinationfolders.hasNext() && end.getTime() - start.getTime() <= maxTime) {
+    i++;
+    var folder = destinationfolders.next();
+    progress.getRange(i,1).setValue(folder.getName());
+  var namecheck = sheet.getRange(4,2).getValue();
+  var checkcode = 'title contains '+ '"' + namecheck + '"' 
+    if (folder.searchFiles(checkcode).hasNext() == false){ //
+      Logger.log(folder.getName());
+      var newfilename = folder.getName() + " " + sheet.getRange(3,2).getValue();
+      var newfile = copyfile.makeCopy(newfilename, folder)
+      progress.getRange(i,2).setValue("Created " + newfilename);
+    }
+    
+    else {
+      progress.getRange(i,2).setValue("Existing");
+    }
+    
+    end = new Date()
+  }
+  // Save your place by setting the token in your user properties
+  if(destinationfolders.hasNext()){
+    var continuationToken = destinationfolders.getContinuationToken();
+    userProperties.setProperty('CONTINUATION_TOKEN', continuationToken);
+  } 
+  
+  else {
+    i++;
+    progress.getRange(i,1).setValue("Completed")
+    // Delete the token
+    PropertiesService.getUserProperties().deleteProperty('CONTINUATION_TOKEN');
+    //ss.deleteSheet("Progress");
+    
+    var Completionalert = ui.prompt(
+      'completed',
+      ui.ButtonSet.OK_CANCEL);
+  }
+}
