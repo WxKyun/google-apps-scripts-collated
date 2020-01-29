@@ -1,0 +1,123 @@
+function ProtectionNewLarge() {
+  var ui = SpreadsheetApp.getUi();
+  var app = SpreadsheetApp;
+  var ss = app.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("Protection")
+  
+  //Folder to search
+  var basefolderid = sheet.getRange(2,2).getValue();
+  var baseFolder = DriveApp.getFolderById(basefolderid); 
+  //var allFolders = baseFolder.getFolders();
+  
+  // To generate file to search
+  var namecheck = sheet.getRange(1,2).getValue(); 
+  var checkcode = 'title contains '+ '"' + namecheck + '"' ;
+  var sheettoedit = sheet.getRange(3,2).getValue();
+  
+  //range to protect
+  var protectrange = sheet.getRange(4,2).getValue();
+  var protectrange2 = sheet.getRange(5,2).getValue();
+  var protectrange3 = sheet.getRange(6,2).getValue();
+  
+  //continuation token
+  var userProperties = PropertiesService.getUserProperties();
+  var continuationToken = userProperties.getProperty('CONTINUATION_TOKEN');
+  var start = new Date();
+  var end = new Date();
+  var maxTime = 1000*60*5;
+  
+  if (continuationToken == null) {
+    // firt time execution, get all files from Drive
+    var allFolders = baseFolder.getFolders();
+    var Tokenalert = ui.alert('There is no token');
+  } 
+  
+  else {
+    // not the first time, pick up where we left off
+    var allFolders = DriveApp.continueFolderIterator(continuationToken);
+  }
+  
+  // Create tab to track progress
+  var i = null;
+  if (ss.getSheetByName("Progress") == null){
+    var progress = ss.insertSheet("Progress");
+    var i = 0;
+  }
+  else {
+    var progress = ss.getSheetByName("Progress");
+    var i = ss.getSheetByName("Progress").getLastRow();
+    }
+  
+  while (allFolders.hasNext() && end.getTime() - start.getTime() <= maxTime) {
+    i++;
+    var studentFolder = allFolders.next();
+    Logger.log(studentFolder.getName());
+    progress.getRange(i,1).setValue(studentFolder.getName());
+    if (studentFolder.searchFiles(checkcode).hasNext() == true){ 
+      
+      var filetochange = studentFolder.searchFiles(checkcode); 
+      var editfile = filetochange.next();
+      progress.getRange(i,2).setValue(editfile);
+      Logger.log(editfile);
+      var fileid = editfile.getId();
+      var editss = SpreadsheetApp.openById(fileid);
+      
+      Logger.log(editss.getName());
+      progress.getRange(i,3).setValue(fileid);
+      var editsheet = editss.getSheetByName(sheettoedit); 
+      // remove protection from the sheet mentioned
+      // Protect the active sheet except B2:C5, then remove all other users from the list of editors.
+      var protection = editsheet.protect().setDescription('Test');
+      
+      if (protectrange != 0) {
+        var unprotected = editsheet.getRange(protectrange);
+      }
+      
+      if (protectrange2 != 0) {
+        var unprotected2 = editsheet.getRange(protectrange2);
+      }
+      else {
+        unprotected2 = unprotected;
+      }
+      
+      if (protectrange3 != 0) {
+        var unprotected3 = editsheet.getRange(protectrange3);
+      }
+      else {
+        unprotected3 = unprotected2;
+      }
+      protection.setUnprotectedRanges([unprotected, unprotected2]);
+      
+      // Ensure the current user is an editor before removing others. Otherwise, if the user's edit
+      // permission comes from a group, the script throws an exception upon removing the group.
+      var me = Session.getEffectiveUser();
+      protection.addEditor(me);
+      protection.removeEditors(protection.getEditors());
+      if (protection.canDomainEdit()) {
+        protection.setDomainEdit(false);
+      }
+      
+      progress.getRange(i,4).setValue("complete");
+    }
+    
+    else {
+      progress.getRange(i,4).setValue("fail");
+    }
+    
+  end = new Date()
+  }
+  
+  // Save your place by setting the token in your user properties
+  if(allFolders.hasNext()){
+    var continuationToken = allFolders.getContinuationToken();
+    userProperties.setProperty('CONTINUATION_TOKEN', continuationToken);
+  } else {
+    i++;
+    progress.getRange(i,1).setValue("Completed")
+    // Delete the token
+    PropertiesService.getUserProperties().deleteProperty('CONTINUATION_TOKEN');
+    //ss.deleteSheet("Progress");
+    
+    var Completionalert = ui.alert('completed');
+  }
+}
