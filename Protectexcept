@@ -1,0 +1,10 @@
+function Protectexcept() {
+  var spreadsheet = SpreadsheetApp.getActive();
+  var sheet = spreadsheet.getActiveSheet();
+  
+  sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).activate();
+  var protection = spreadsheet.getActiveSheet().protect();
+  spreadsheet.getRange('B:B').activate();
+  spreadsheet.getActiveSheet().setFrozenRows(0);
+  protection.setUnprotectedRanges([spreadsheet.getRange('B:B')]); // set B:B as unprotected range
+};
