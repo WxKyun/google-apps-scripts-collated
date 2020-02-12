@@ -1,0 +1,37 @@
+function MergeSheets() {
+  var app = SpreadsheetApp;
+  var ss = app.getActiveSpreadsheet();
+  var data = null;
+  var RetrieveSheet = null;
+  var PasteSheet = ss.getSheetByName("Master");
+
+  /*
+  // Use this if you are using the archiving option
+  var PrevArchSheetName = PasteSheet.getRange(1,1000).getValue();
+
+  if(PrevArchSheetName.length > 1){
+    var PrevArchSheet = ss.getSheetByName(PrevArchSheetName); //Retrieve the stored Archive Sheet's Name
+    ss.deleteSheet(PrevArchSheet);
+  }
+  */
+
+  var sheets = ss.getSheets();//get all sheets regardless of naming conventions (allow you to expand your data source)
+
+  /*
+  //This portion can be used to allow for archiving of the previous day data in case you still need it.
+  var ArchiveSheet = ss.insertSheet(new Date() + "Master");
+  PasteSheet.getDataRange().copyTo(ArchiveSheet.getRange(1,1));
+  PasteSheet.getRange(1,1000).setValue(ArchiveSheet.getName()); // stores the name of the sheet so as to delete it when the script run again
+  */
+
+  PasteSheet.getRange(2,1,PasteSheet.getLastRow(),PasteSheet.getLastColumn()).clear();//removes all old information
+
+  for (var i =0; i<sheets.length; i++){
+    RetrieveSheet = ss.getSheetByName(sheets[i].getName());
+    if (RetrieveSheet.getName() != 'Master'){
+      //data = RetrieveSheet.getDataRange(); //use this if you want the header row for each salesperson
+      data = RetrieveSheet.getRange(2,1,RetrieveSheet.getLastRow(),RetrieveSheet.getLastColumn()); //presuming you dont want the header rows
+      data.copyTo(PasteSheet.getRange(parseInt(PasteSheet.getLastRow())+1,1));
+    }
+  }
+}
